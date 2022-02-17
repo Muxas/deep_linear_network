@@ -1,0 +1,6 @@
+[submodule "chameleon/chameleon"]
+	path = chameleon/chameleon
+	url = https://gitlab.inria.fr/pswartva/chameleon.git
+[submodule "chameleon/starpu"]
+	path = chameleon/starpu
+	url = https://gitlab.inria.fr/starpu/starpu.git
