@@ -75,16 +75,18 @@ int main(int argc, char **argv)
         " GBytes\n\n";
 
     // Fill random data
-    std::cout << "Initializing random data..\n";
-    for(int i = 0; i <= D; ++i)
-    {
-        int seed_X = rand();
-        CHAMELEON_splrnt_Tile(desc_X[i], seed_X);
-        int seed_G = rand();
-        CHAMELEON_splrnt_Tile(desc_G[i], seed_G);
-        int seed_Y = rand();
-        CHAMELEON_splrnt_Tile(desc_Y[i], seed_Y);
-    }
+    std::cout << "Initializing random data...\n";
+    //for(int i = 0; i <= D; ++i)
+    //{
+    //    int seed_X = rand();
+    //    CHAMELEON_splrnt_Tile(desc_X[i], seed_X);
+    //    int seed_G = rand();
+    //    CHAMELEON_splrnt_Tile(desc_G[i], seed_G);
+    //    int seed_Y = rand();
+    //    CHAMELEON_splrnt_Tile(desc_Y[i], seed_Y);
+    //}
+    int seed_X = rand();
+    CHAMELEON_splrnt_Tile(desc_X[0], seed_X);
     for(int i = 0; i < D; ++i)
     {
         int seed_W = rand();

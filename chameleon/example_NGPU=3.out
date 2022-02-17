@@ -1,0 +1,25 @@
+root@6e02a4e5d3e1:/workspace/Code/deep_linear_network/chameleon# CUDA_VISIBLE_DEVICES=0,1,2 STARPU_SCHED=dmdas STARPU_DISABLE_PINNING=0 ./run.sh
+test B N D NB
+ B is the number of input samples
+ N is the number of inputs/outputs of each linear layer
+ D is the number of linear layers
+ NB is the tile size (parameter of the CHAMELEON library)
+
+ 1. Generate random BxN matrix X_0 and D random NxN matrices W_0, ..., W_{D-1}
+ 2. Compute BxN matrices X_1 = X_0 W_0, ..., X_D = X_{D-1} W_{D-1}
+ 3. Set BxN matrix G_D = X_D
+ 4. Multiply G_{D-1} = G_D W_{D-1}', ..., G_0 = G_1 W_0'
+ 5. Compute NxN matrices Y_D = X_D' G_D, ..., Y_1 = X_1' G_1, Y_0 = X_0' G_0
+
+B=65536 N=8192 D=16 NB=4096
+Allocating memory (76.25 GBytes)...
+Total memory allocated on RAM is 76.25 GBytes
+
+Initializing random data...
+Initialization Complete
+Starting the process
+[starpu][starpu_interface_end_driver_copy_async] Warning: the submission of asynchronous transfer from CUDA 1 to CUDA 2 took a very long time (1.012478 ms)
+For proper asynchronous transfer overlapping, data registered to StarPU must be allocated with starpu_malloc() or pinned with starpu_memory_pin()
+Time, s: 11.5464
+GFLOPS : 431009
+GFLOP/s: 37328.4

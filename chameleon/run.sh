@@ -9,4 +9,4 @@ g++ test.cc -I/workspace/Install/chameleon/include \
     -lmkl_sequential -lmkl_core -lpthread -lm -ldl -lcublas
 
 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/workspace/Install/chameleon/lib:/workspace/Install/starpu/lib:/opt/conda/lib \
-    STARPU_NCPU=4 ./a.out 65536 8192 16 4096
+    STARPU_NCPU=3 ./a.out 65536 8192 16 4096
