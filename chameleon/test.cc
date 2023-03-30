@@ -15,9 +15,9 @@ int main(int argc, char **argv)
         " ..., W_{D-1}\n"
         " 2. Compute BxN matrices X_1 = X_0 W_0, ..., X_D = X_{D-1} W_{D-1}\n"
         " 3. Set BxN matrix G_D = X_D\n"
-        " 4. Multiply G_{D-1} = G_D W_{D-1}', ..., G_0 = G_1 W_0'\n"
-        " 5. Compute NxN matrices Y_D = X_D' G_D, ..., Y_1 = X_1' G_1, Y_0"
-        " = X_0' G_0\n\n";
+        " 4. Multiply G_{D-1} = G_D W_{D-1}', ..., G_1 = G_2 W_1'\n"
+        " 5. Compute NxN matrices Y_D = X_D' G_D, ..., Y_1 = X_1' G_1\n"
+        " 6. Update W_i += 1e-16 Y_{i+1}\n";
     if(argc != 5)
     {
         return 0;
@@ -31,7 +31,7 @@ int main(int argc, char **argv)
         return -1;
     }
     // Force all computations on GPUs only
-    RUNTIME_zlocality_allrestrict(RUNTIME_CUDA);
+    RUNTIME_slocality_allrestrict(RUNTIME_CUDA);
 
     // Read arguments
     int B, N, D, NB;
@@ -86,7 +86,6 @@ int main(int argc, char **argv)
     //    CHAMELEON_splrnt_Tile(desc_Y[i], seed_Y);
     //}
     int seed_X = rand();
-    CHAMELEON_splrnt_Tile(desc_X[0], seed_X);
     for(int i = 0; i < D; ++i)
     {
         int seed_W = rand();
@@ -107,38 +106,50 @@ int main(int argc, char **argv)
     CHAMELEON_Sequence_Wait(sequence);
     std::cout << "Starting the process\n";
     double t_start = RUNTIME_get_time();
-    // Compute all X
-    for(int i = 0; i < D; ++i)
+    // Epochs
+    for(int epoch = 0; epoch < 10; ++epoch)
     {
-        // X_{i+1} = X_i W_i
-        CHAMELEON_sgemm_Tile_Async(NoTrans, NoTrans, alpha, desc_X[i],
-                desc_W[i], beta, desc_X[i+1], user_ws, sequence, request);
-    }
-    // Set G_D = X_D
-    const cham_uplo_t UpperLower = ChamUpperLower;
-    CHAMELEON_slacpy_Tile_Async(UpperLower, desc_X[D], desc_G[D], sequence,
-            request);
-    // Compute all other G
-    const cham_trans_t Trans = ChamTrans;
-    for(int i = D; i > 0; --i)
-    {
-        // G_{i-1} = G_i W_{i-1}'
-        CHAMELEON_sgemm_Tile_Async(NoTrans, Trans, alpha, desc_G[i],
-                desc_W[i-1], beta, desc_G[i-1], user_ws, sequence, request);
-    }
-    // Compute all Y
-    for(int i = D; i >= 0; --i)
-    {
-        // Y_i = X_i' G_i
-        CHAMELEON_sgemm_Tile_Async(Trans, NoTrans, alpha, desc_X[i],
-                desc_G[i], beta, desc_Y[i], user_ws, sequence, request);
+        // Generate input
+        CHAMELEON_splrnt_Tile_Async(desc_X[0], seed_X, sequence, request);
+        // Compute all X
+        for(int i = 0; i < D; ++i)
+        {
+            // X_{i+1} = X_i W_i
+            CHAMELEON_sgemm_Tile_Async(NoTrans, NoTrans, alpha, desc_X[i],
+                    desc_W[i], beta, desc_X[i+1], user_ws, sequence, request);
+        }
+        // Set G_D = X_D
+        const cham_uplo_t UpperLower = ChamUpperLower;
+        CHAMELEON_slacpy_Tile_Async(UpperLower, desc_X[D], desc_G[D], sequence,
+                request);
+        // Compute all other G
+        const cham_trans_t Trans = ChamTrans;
+        for(int i = D; i > 1; --i)
+        {
+            // G_{i-1} = G_i W_{i-1}'
+            CHAMELEON_sgemm_Tile_Async(NoTrans, Trans, alpha, desc_G[i],
+                    desc_W[i-1], beta, desc_G[i-1], user_ws, sequence, request);
+        }
+        // Compute all Y
+        for(int i = D; i > 0; --i)
+        {
+            // Y_i = X_i' G_i
+            CHAMELEON_sgemm_Tile_Async(Trans, NoTrans, alpha, desc_X[i],
+                    desc_G[i], beta, desc_Y[i], user_ws, sequence, request);
+        }
+        // Update all W_i
+        for(int i = 0; i < D; ++i)
+        {
+            CHAMELEON_sgeadd_Tile_Async(NoTrans, 1e-16, desc_Y[i+1], 1.0,
+                    desc_W[i], sequence, request);
+        }
     }
     // Get all the matrices back to CPU
     for(int i = 0; i <= D; ++i)
     {
-        CHAMELEON_Desc_Flush(desc_X[i], sequence);
-        CHAMELEON_Desc_Flush(desc_G[i], sequence);
-        CHAMELEON_Desc_Flush(desc_Y[i], sequence);
+        //CHAMELEON_Desc_Flush(desc_X[i], sequence);
+        //CHAMELEON_Desc_Flush(desc_G[i], sequence);
+        //CHAMELEON_Desc_Flush(desc_Y[i], sequence);
     }
     // Synchronize to stop
     CHAMELEON_Sequence_Wait(sequence);
@@ -146,7 +157,7 @@ int main(int argc, char **argv)
     // Measure time
     double t_end = RUNTIME_get_time();
     double t = t_end - t_start;
-    size_t flops = (size_t)2 * B * N * N * (D + D + D + 1);
+    size_t flops = (size_t)2 * B * N * N * (D + D + D - 1) * 10;
     float gflops = flops * 1e-9;
     std::cout << "Time, s: " << t << "\n"
         "GFLOPS : " << gflops << "\n"
